@@ -1,6 +1,7 @@
 import simplejson as json
-from collections import namedtuple
+import os
 
+from collections import namedtuple
 from kazoo.client import KazooClient
 from kazoo.exceptions import NoNodeError
 
@@ -22,9 +23,10 @@ class ZkError(Exception):
 
 class ZkClient:
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, root):
         self.host = host
         self.port = port
+        self.root = root
         self.client = KazooClient(hosts=':'.join([host, str(port)]))
 
     @classmethod
@@ -36,6 +38,8 @@ class ZkClient:
         Returns a list of ZkKafkaBroker tuples, where each value is a
         ZkKafkaBroker.
         '''
+        broker_root = self.zroot + broker_root
+
         b = []
         id_root = self._zjoin([broker_root, 'ids'])
 
@@ -54,6 +58,8 @@ class ZkClient:
         Returns a list of ZkKafkaTopic tuples, where each tuple represents
         a topic being stored in a broker.
         '''
+        broker_root = self.zroot + broker_root
+
         topics = []
         t_root = self._zjoin([broker_root, 'topics'])
 
@@ -76,15 +82,16 @@ class ZkClient:
         s = []
         self.client.start()
         try:
+            partitions = []
+            spout_name = os.path.basename(os.path.normpath(spout_root))
+
             for c in self.client.get_children(spout_root):
-                partitions = []
-                for p in self.client.get_children(
-                        self._zjoin([spout_root, c])):
-                    j = json.loads(self.client.get(
-                        self._zjoin([spout_root, c, p]))[0])
-                    if j['topology']['name'] == topology:
-                        partitions.append(j)
-                s.append(ZkKafkaSpout._make([c, partitions]))
+                j = json.loads((self.client.get(self._zjoin([spout_root, c])))[0])
+
+                if j['topology']['name'] == topology:
+                    partitions.append(j)
+
+            s.append(ZkKafkaSpout._make([spout_name, partitions]))
         except NoNodeError:
             raise ZkError('Kafka Spout nodes do not exist in Zookeeper')
         self.client.stop()

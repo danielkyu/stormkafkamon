@@ -75,6 +75,8 @@ def read_args():
                         help='Zookeeper host (default: localhost)')
     parser.add_argument('--zport', type=int, default=2181,
                         help='Zookeeper port (default: 2181)')
+    parser.add_argument('--zroot', type=str, default='/',
+                        help='Zookeeper root directory (default: /)')
     parser.add_argument('--topology', type=str, required=True,
                         help='Storm Topology')
     parser.add_argument('--spoutroot', type=str, required=True,
@@ -89,7 +91,7 @@ def read_args():
 def main():
     options = read_args()
 
-    zc = ZkClient(options.zserver, options.zport)
+    zc = ZkClient(options.zserver, options.zport, options.zroot)
 
     try:
         zk_data = process(zc.spouts(options.spoutroot, options.topology))
